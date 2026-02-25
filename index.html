@@ -1,0 +1,932 @@
+<!DOCTYPE html>
+<html lang="mn">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>Тархины хурд</title>
+  
+  <!-- PWA Meta Tags -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Тархины хурд">
+  <link rel="apple-touch-icon" href="images/icon-192.png">
+  <link rel="manifest" href="manifest.json">
+  
+  <!-- Your original CSS (unchanged) -->
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      min-height: 100vh; display: flex; justify-content: center; align-items: center;
+      background: linear-gradient(135deg, #2a1e18 0%, #4a3429 100%);
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+      padding: 16px; color: #fff;
+    }
+    .game-wrapper {
+      width: 100%; max-width: 500px; height: 700px; max-height: 90vh;
+      display: grid; grid-template-rows: auto 1fr auto;
+      background: radial-gradient(circle at 50% 50%, rgba(93,64,55,.4) 0%, rgba(58,39,32,.8) 100%),
+                  url('wood.jpg') no-repeat center center;
+      background-size: cover; border-radius: 20px;
+      box-shadow: 0 15px 35px rgba(0,0,0,.7);
+      overflow: hidden; position: relative;
+    }
+    .hide-controls .game-controls { display: none; }
+
+    .game-header {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 18px 24px; background: rgba(0,0,0,.6); backdrop-filter: blur(6px);
+      font-weight: 700; font-size: 18px; border-bottom: 1px solid rgba(255,255,255,.1);
+      gap: 8px;
+    }
+    .stat { min-width: 120px; }
+    .tutorial-mode .stat { visibility: hidden; }
+
+    .sound-toggle { cursor: pointer; font-size: 22px; user-select: none; }
+    .icon-btn{ background: transparent; border: 0; color: #fff; font-size: 20px; cursor: pointer; line-height: 1; }
+    .icon-btn:active{ transform: scale(0.96); }
+
+    .game-content { display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding: 20px; gap: 18px; }
+
+    /* HUD row: multiplier + meter */
+    .hud-row { width: 100%; display: flex; align-items: center; justify-content: center; gap: 12px; }
+    .mult-badge {
+      font-weight: 800; padding: 6px 12px; border-radius: 999px;
+      background: rgba(0,0,0,0.5); border:1px solid rgba(255,255,255,0.15);
+      box-shadow: 0 3px 8px rgba(0,0,0,.35);
+      min-width: 46px; text-align: center;
+    }
+    .meter {
+      display:flex; gap:8px; align-items:center;
+      background: rgba(0,0,0,.35);
+      border:1px solid rgba(255,255,255,.12);
+      border-radius: 999px; padding: 6px 10px;
+      box-shadow: inset 0 1px 2px rgba(255,255,255,.05), 0 3px 10px rgba(0,0,0,.35);
+    }
+    .pip {
+      width: 22px; height: 12px; border-radius: 8px;
+      background: rgba(255,255,255,0.18);
+      border:1px solid rgba(255,255,255,0.22);
+      box-shadow: inset 0 1px 2px rgba(0,0,0,.4);
+    }
+    .pip.filled { background: linear-gradient(#ffd54f,#fbc02d); border-color: rgba(255,210,80,0.9); }
+
+    .shape-stage {
+      width: 220px; height: 220px; position: relative;
+      background: rgba(0,0,0,.25); border-radius: 16px;
+      box-shadow: 0 6px 20px rgba(0,0,0,.4), inset 0 1px 1px rgba(255,255,255,.1);
+      overflow: hidden;
+    }
+    .shape {
+      position: absolute; width: 100%; height: 100%; object-fit: contain;
+      filter: drop-shadow(0 3px 6px rgba(0,0,0,.3));
+      transition: transform 0.36s cubic-bezier(0.22, 0.9, 0.35, 1);
+      will-change: transform;
+    }
+    .shape.enter-start { transform: translateX(120%); }
+    .shape.enter-active { transform: translateX(0%); }
+    .shape.exit-active  { transform: translateX(-120%); }
+
+    .game-message {
+      padding: 16px 20px; background: rgba(0,0,0,.7); border-radius: 14px;
+      font-size: 20px; text-align: center; line-height: 1.4;
+      width: 100%; min-height: 80px; display: none;
+      align-items: center; justify-content: center;
+      backdrop-filter: blur(8px); border: 1px solid rgba(255,255,255,.1);
+      box-shadow: 0 4px 12px rgba(0,0,0,.3);
+    }
+
+    .game-controls {
+      position: relative; z-index: 2;
+      display: flex; gap: 25px; padding: 25px; justify-content: center;
+      background: rgba(0,0,0,.5); backdrop-filter: blur(6px);
+      border-top: 1px solid rgba(255,255,255,.1);
+    }
+    .game-btn {
+      padding: 14px 28px; font-size: 20px; border: 0; border-radius: 14px;
+      background: linear-gradient(to bottom,#fff,#f0f0f0); color: #222; cursor: pointer;
+      min-width: 140px; box-shadow: 0 5px 15px rgba(0,0,0,.3);
+      transition: all .25s ease; font-weight: 700; letter-spacing: .5px;
+    }
+    .game-btn:hover { transform: translateY(-3px); box-shadow: 0 8px 20px rgba(0,0,0,.4); background: linear-gradient(to bottom,#fff,#e8e8e8); }
+    .game-btn:active { transform: translateY(1px); box-shadow: 0 3px 8px rgba(0,0,0,.3); }
+    #yesBtn { background: linear-gradient(to bottom,#4CAF50,#45a049); color: white; text-shadow: 0 1px 2px rgba(0,0,0,.2); }
+    #noBtn  { background: linear-gradient(to bottom,#f44336,#d32f2f); color: white; text-shadow: 0 1px 2px rgba(0,0,0,.2); }
+    #newGameBtn { background: linear-gradient(to bottom,#2196F3,#1976D2); color: #fff; display: none; }
+
+    .countdown-overlay {
+      position: absolute; top:0; left:0; width:100%; height:100%;
+      display: none; align-items: center; justify-content: center;
+      background: transparent; z-index: 10; pointer-events: none;
+    }
+    .count-number {
+      font-size: 120px; font-weight: 900; color: #f2c94c;
+      text-shadow: 0 0 12px rgba(0,0,0,.7);
+      opacity: 0; transform: scale(0.6);
+    }
+    .count-number.active { animation: countPop .9s ease forwards; }
+    @keyframes countPop {
+      0%{opacity:0;transform:scale(.6);} 20%{opacity:1;transform:scale(1);}
+      70%{opacity:1;transform:scale(1);} 100%{opacity:0;transform:scale(1.2);}
+    }
+
+    .feedback {
+      position: absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+      font-size:60px; opacity:0; pointer-events:none; z-index:5;
+      text-shadow:0 4px 12px rgba(0,0,0,.5);
+    }
+    .feedback.active { animation: feedbackFlash 0.5s ease forwards; }
+    @keyframes feedbackFlash {
+      0%{opacity:0;transform:translate(-50%,-50%) scale(.7);}
+      40%{opacity:1;transform:translate(-50%,-50%) scale(1.1);}
+      100%{opacity:0;transform:translate(-50%,-50%) scale(1.3);}
+    }
+
+    /* Wizard */
+    .wizard {
+      position: absolute; inset: 0; z-index: 30;
+      display: none; align-items: center; justify-content: center;
+      background: rgba(0,0,0,0.6);
+    }
+    .wizard-card {
+      position: relative;
+      width: min(520px, 92vw);
+      background: linear-gradient(180deg, rgba(15,15,15,.9), rgba(25,25,25,.92));
+      border: 1px solid rgba(255,255,255,.1);
+      border-radius: 18px; box-shadow: 0 12px 40px rgba(0,0,0,.6);
+      padding: 24px 22px;
+    }
+    .wizard-title { font-size: 26px; font-weight: 800; color: #f2c94c; text-align: center; margin-bottom: 14px; }
+    .wizard-body  { font-size: 18px; line-height: 1.5; color: #f2f2f2; }
+    .wizard-body ol { margin-left: 20px; margin-top: 6px; }
+    .wizard-actions { display: flex; gap: 12px; justify-content: center; margin-top: 18px; }
+    .btn { border: 0; border-radius: 12px; padding: 12px 18px; font-size: 16px; font-weight: 700; cursor: pointer; box-shadow: 0 6px 16px rgba(0,0,0,.3); }
+    .btn-primary   { background: linear-gradient(#f2c94c,#d9a93a); color: #2b2000; }
+    .btn-secondary { background: #fff; color: #222; }
+    .btn:active { transform: translateY(1px); box-shadow: 0 3px 10px rgba(0,0,0,.25); }
+    .wiz-opt { display:block; text-align:center; margin-top:10px; color:#ddd; font-size:14px; }
+    .wiz-opt input{ transform: translateY(1px); margin-right:6px; }
+
+    .wizard-close{
+      position:absolute; top:10px; right:12px;
+      background:transparent; border:0; color:#7fd3ff; font-size:26px; line-height:1;
+      cursor:pointer; transition: transform .08s ease, color .2s ease;
+    }
+    .wizard-close:hover{ transform:scale(1.08); color:#b9e7ff; }
+    .wizard-close:active{ transform:scale(0.94); }
+
+    /* Start Screen */
+    .start-screen {
+      position: absolute; inset: 0; z-index: 25;
+      background: rgba(0,0,0,0.7); display: none;
+      align-items: center; justify-content: center; gap: 20px; flex-direction: column;
+    }
+    .start-screen h1 { font-size: 28px; }
+    .start-btn {
+      padding: 14px 28px; font-size: 22px; border:0; border-radius:14px;
+      background: linear-gradient(to bottom,#2196F3,#1976D2); color:white;
+      cursor:pointer; box-shadow:0 5px 15px rgba(0,0,0,.4);
+    }
+
+    /* Scores Modal */
+    .modal {
+      position: absolute; inset: 0; z-index: 35; display: none;
+      align-items: center; justify-content: center;
+      background: rgba(0,0,0,.6);
+    }
+    .modal-card {
+      width: min(540px, 94vw);
+      background: linear-gradient(180deg, rgba(15,15,15,.95), rgba(28,28,28,.97));
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 18px; box-shadow: 0 12px 40px rgba(0,0,0,.65);
+      padding: 18px 16px 16px;
+    }
+    .modal h2 { font-size: 22px; margin: 4px 0 10px; text-align:center; color:#f2c94c; }
+    table { width:100%; border-collapse: collapse; font-size: 15px; }
+    th, td { padding: 8px 10px; text-align: left; }
+    th { border-bottom: 1px solid rgba(255,255,255,.2); color:#ddd;}
+    tr + tr td { border-top: 1px dashed rgba(255,255,255,.08); }
+    tr.highlight { background: rgba(255,215,64,.12); }
+    .modal-actions { display:flex; gap:10px; justify-content:center; margin-top:12px; }
+    
+    /* Tiny unobtrusive hint */
+    .install-hint {
+      position: absolute; bottom: 4px; right: 10px; font-size: 10px; 
+      color: rgba(255,255,255,0.3); z-index: 1; pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="game-wrapper hide-controls" id="gameWrapper">
+    <div class="game-header">
+      <div class="stat" id="timeBlock">ХУГАЦАА: <span id="time">0:45</span></div>
+      <div class="stat" id="scoreBlock">ОНОО: <span id="score">0</span></div>
+      <div style="display:flex; align-items:center; gap:10px;">
+        <button class="icon-btn" id="scoresBtn" title="Дээд оноо">🏆</button>
+        <button class="icon-btn" id="helpBtn" title="Тусламж">❓</button>
+        <div class="sound-toggle" id="soundToggle">🔊</div>
+        <button class="icon-btn" id="restartBtn" title="Дахин">🔁</button>
+      </div>
+    </div>
+
+    <div class="game-content">
+      <div class="hud-row">
+        <div class="mult-badge" id="multBadge">x1</div>
+        <div class="meter" id="meter">
+          <div class="pip"></div><div class="pip"></div><div class="pip"></div><div class="pip"></div>
+        </div>
+      </div>
+
+      <div class="shape-stage" id="stage"></div>
+      <div class="game-message" id="message">Энэ дүрсийг сайн тогтоож аваарай!</div>
+    </div>
+
+    <div class="game-controls">
+      <button class="game-btn" id="yesBtn">ТИЙМ</button>
+      <button class="game-btn" id="noBtn">ҮГҮЙ</button>
+      <button class="game-btn" id="newGameBtn">Шинэ тоглоом</button>
+    </div>
+
+    <div class="countdown-overlay" id="countdownOverlay"></div>
+
+    <!-- Wizard (instructions) -->
+    <div class="wizard" id="wizard">
+      <div class="wizard-card">
+        <button class="wizard-close" id="wizClose" aria-label="Хаах">✕</button>
+        <div class="wizard-title" id="wizTitle">Тоглоомын заавар</div>
+        <div class="wizard-body" id="wizBody">
+          <p>Тавтай морил! Энэ бол сэтгэхүйн тоглоом.</p>
+          <p style="margin-top:8px;">Тоглоомын үндсэн зорилго нь дэлгэцэн дээр гарч ирэх дүрсийг санаж, мөн өмнөх дүрстэй ижил эсэхийг тодорхойлох юм.</p>
+        </div>
+        <div class="wizard-actions">
+          <button class="btn btn-secondary" id="wizPrev" style="display:none;">Өмнөх</button>
+          <button class="btn btn-primary" id="wizNext">Дараагийн</button>
+        </div>
+        <label class="wiz-opt"><input type="checkbox" id="wizDontShow"> Дахин бүү харуулах</label>
+      </div>
+    </div>
+
+    <!-- Start Screen -->
+    <div class="start-screen" id="startScreen">
+      <h1>Тархины хурд</h1>
+      <button class="start-btn" id="startBtn">Эхлэх</button>
+    </div>
+
+    <!-- Highscores Modal -->
+    <div class="modal" id="scoresModal">
+      <div class="modal-card">
+        <h2>Дээд оноо</h2>
+        <div id="scoresTableWrap"></div>
+        <div class="modal-actions">
+          <button class="btn btn-secondary" id="scoresClose">Хаах</button>
+          <button class="btn btn-primary" id="scoresClear">Цэвэрлэх</button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Tiny unobtrusive hint -->
+    <div class="install-hint">➕ home screen install</div>
+  </div>
+
+  <script>
+    // --- Your original code with fixed beep sound ---
+    const SHAPES=['images/heart.png','images/spade.png','images/club.png','images/diamond.png','images/joker.png'];
+    const COUNTDOWN_DELAY = 800;
+    const TIME_LIMIT      = 45;
+    const NEXT_QUESTION_PAUSE = 700;
+    const PRACTICE_ROUNDS = 6;
+    const ONBOARDING_VERSION = 1;
+    const ONBOARD_KEY = 'onboardSeenV';
+
+    // Scoring config
+    const BASE_POINTS = 50;
+    const FINAL_BONUS_PER_LEVEL = 250;
+    const METER_SIZE = 4;
+    const MAX_MULT = 10;
+
+    // Highscore storage (Top 5)
+    const HS_KEY   = 'brainSpeedHS_v1';
+    const HS_LIMIT = 5;
+
+    // Sounds
+    const SFX={ correct:new Audio('sounds/correct.mp3'),
+                wrong:new Audio('sounds/wrong.mp3'),
+                start:new Audio('sounds/start.mp3'),
+                beep:new Audio('sounds/beep.mp3') };
+
+    // WebAudio beep fallback - IMPROVED VERSION
+    let audioCtx = null;
+    let audioInitialized = false;
+    
+    const ensureAudioContext = () => { 
+      if (!audioCtx) {
+        try {
+          audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        } catch(e) {
+          console.log('WebAudio not supported');
+        }
+      }
+      if (audioCtx && audioCtx.state === 'suspended') {
+        audioCtx.resume().then(() => {
+          audioInitialized = true;
+        }).catch(e => console.log('Could not resume audio context'));
+      }
+    };
+    
+    // Call this on user interaction to initialize audio
+    const initAudio = () => {
+      ensureAudioContext();
+      audioInitialized = true;
+    };
+    
+    const beepFallback = () => { 
+      if (!soundEnabled) return; 
+      try { 
+        ensureAudioContext(); 
+        if (!audioCtx || audioCtx.state !== 'running') return;
+        
+        const o = audioCtx.createOscillator(); 
+        const g = audioCtx.createGain(); 
+        o.type = 'sine'; 
+        o.frequency.value = 880; 
+        o.connect(g); 
+        g.connect(audioCtx.destination); 
+        const now = audioCtx.currentTime; 
+        g.gain.setValueAtTime(0, now); 
+        g.gain.linearRampToValueAtTime(0.3, now+0.01); 
+        g.gain.exponentialRampToValueAtTime(0.001, now+0.15); 
+        o.start(now); 
+        o.stop(now+0.16);
+        
+        // Also play second beep for countdown
+        if (timeLeft <= 5 && timeLeft > 0) {
+          const o2 = audioCtx.createOscillator();
+          const g2 = audioCtx.createGain();
+          o2.type = 'sine';
+          o2.frequency.value = 660;
+          o2.connect(g2);
+          g2.connect(audioCtx.destination);
+          g2.gain.setValueAtTime(0, now+0.1);
+          g2.gain.linearRampToValueAtTime(0.2, now+0.11);
+          g2.gain.exponentialRampToValueAtTime(0.001, now+0.2);
+          o2.start(now+0.1);
+          o2.stop(now+0.21);
+        }
+      } catch(e) { 
+        console.log('Beep error:', e);
+      } 
+    };
+    
+    // FIXED: Enhanced playBeep function
+    const playBeep = () => { 
+      if (!soundEnabled) return; 
+      
+      // Try to use the beep sound file first
+      if (SFX.beep) { 
+        try { 
+          // Create a new copy to allow overlapping beeps
+          const beepSound = new Audio('sounds/beep.mp3');
+          beepSound.volume = 0.5;
+          beepSound.play().catch(e => {
+            // If file fails, use fallback
+            beepFallback();
+          });
+        } catch(e) { 
+          beepFallback(); 
+        } 
+      } else { 
+        beepFallback(); 
+      } 
+    };
+
+    // Sound toggle (persist)
+    let soundEnabled = localStorage.getItem('soundEnabled') !== 'false';
+    const soundToggle = document.getElementById('soundToggle');
+    soundToggle.textContent = soundEnabled ? '🔊' : '🔇';
+
+    // State
+    let mode = 'idle'; // 'idle' | 'wizard' | 'tutorial' | 'game'
+    let prevMode = 'idle';
+    let prevShape=null,currentShape=null,timerId=null;
+    let timeLeft = TIME_LIMIT;
+    let countdownToken = 0;
+    let canAnswer = false;
+    let practiceCount = 0;
+
+    // Scoring state
+    let points = 0;
+    let multiplier = 1;
+    let meter = 0; // 0..4
+
+    // DOM
+    const gameWrapper = document.getElementById('gameWrapper');
+    const stageEl = document.getElementById('stage');
+    const messageEl = document.getElementById('message');
+    const yesBtn = document.getElementById('yesBtn');
+    const noBtn = document.getElementById('noBtn');
+    const newGameBtn = document.getElementById('newGameBtn');
+    const timeEl = document.getElementById('time');
+    const scoreEl = document.getElementById('score');
+    const countdownOverlayEl = document.getElementById('countdownOverlay');
+    const restartBtn = document.getElementById('restartBtn');
+    const helpBtn = document.getElementById('helpBtn');
+    const scoresBtn = document.getElementById('scoresBtn');
+
+    const meterEl = document.getElementById('meter');
+    const multBadge = document.getElementById('multBadge');
+
+    // Wizard DOM
+    const wizardEl = document.getElementById('wizard');
+    const wizTitle = document.getElementById('wizTitle');
+    const wizBody = document.getElementById('wizBody');
+    const wizPrev = document.getElementById('wizPrev');
+    const wizNext = document.getElementById('wizNext');
+    const wizDontShow = document.getElementById('wizDontShow');
+    const wizClose = document.getElementById('wizClose');
+
+    // Start Screen
+    const startScreenEl = document.getElementById('startScreen');
+    const startBtn = document.getElementById('startBtn');
+
+    // Scores modal
+    const scoresModal = document.getElementById('scoresModal');
+    const scoresTableWrap = document.getElementById('scoresTableWrap');
+    const scoresClose = document.getElementById('scoresClose');
+    const scoresClear = document.getElementById('scoresClear');
+
+    const setControlsVisible = (visible) => { gameWrapper.classList.toggle('hide-controls', !visible); };
+    const showAnswerBtns = () => { yesBtn.style.display = 'inline-block'; noBtn.style.display = 'inline-block'; newGameBtn.style.display = 'none'; };
+    const showNewGameBtn = () => { yesBtn.style.display = 'none'; noBtn.style.display = 'none'; newGameBtn.style.display = 'inline-block'; };
+
+    // Preload images
+    window.addEventListener('load', () => { SHAPES.forEach(src => { const img = new Image(); img.src = src; }); });
+
+    // Utils
+    const pad2 = n => n.toString().padStart(2,'0');
+    const fmtPoints = n => n.toLocaleString('en-US');
+    const getRandomShape = () => SHAPES[Math.floor(Math.random() * SHAPES.length)];
+    const getNextShape = () => (prevShape && Math.random() < 0.4) ? prevShape : getRandomShape();
+
+    // Timer - FIXED: Now plays beep during countdown
+    const updateTimeDisplay = () => { 
+      const m = Math.floor(timeLeft / 60); 
+      const s = timeLeft % 60; 
+      timeEl.textContent = `${m}:${pad2(s)}`; 
+    };
+    
+    const startTimer = () => { 
+      if (timerId || mode !== 'game') return;
+      
+      timerId = setInterval(() => {
+        // Play beep for last 5 seconds
+        if (timeLeft <= 5 && timeLeft > 0) { 
+          playBeep(); 
+        }
+        
+        if (timeLeft <= 0) { 
+          stopTimer(); 
+          endGame(); 
+          return; 
+        }
+        
+        timeLeft--; 
+        updateTimeDisplay();
+        
+        if (timeLeft === 0) { 
+          stopTimer(); 
+          endGame(); 
+        }
+      }, 1000);
+    };
+    
+    const stopTimer = () => { 
+      if (timerId) { 
+        clearInterval(timerId); 
+        timerId = null; 
+      } 
+    };
+    
+    const resetTimer = () => { 
+      stopTimer(); 
+      timeLeft = TIME_LIMIT; 
+      updateTimeDisplay(); 
+    };
+
+    const playSound = (s) => { 
+      if (!soundEnabled) return; 
+      try {
+        // Create a new copy to allow overlapping sounds
+        const soundCopy = new Audio(s.src);
+        soundCopy.volume = 0.7;
+        soundCopy.play().catch(e => console.log('Sound play failed:', e));
+      } catch(e) {
+        console.log('Sound error:', e);
+      }
+    };
+
+    // UI updates for scoring
+    const updateScoreUI = () => { scoreEl.textContent = fmtPoints(points); };
+    const updateMeterUI = () => { const pips = meterEl.querySelectorAll('.pip'); pips.forEach((p,i) => p.classList.toggle('filled', i < meter)); };
+    const updateMultiplierUI = () => { multBadge.textContent = 'x' + multiplier; };
+    const resetScoring = () => { points = 0; multiplier = 1; meter = 0; updateScoreUI(); updateMeterUI(); updateMultiplierUI(); };
+
+    // Feedback flash
+    const showFeedback = (isCorrect) => { 
+      const fb = document.createElement('div'); 
+      fb.className = `feedback ${isCorrect ? 'correct' : 'incorrect'}`; 
+      fb.textContent = isCorrect ? '✅' : '❌'; 
+      fb.style.color = isCorrect ? '#3BFF7A' : '#FF5858'; 
+      stageEl.appendChild(fb); 
+      setTimeout(() => fb.classList.add('active'), 10); 
+      fb.addEventListener('animationend', () => fb.remove(), {once: true}); 
+    };
+
+    // Slide transitions
+    const swapTo = (src) => { 
+      const img = document.createElement('img'); 
+      img.className = 'shape enter-start'; 
+      img.src = src; 
+      const old = stageEl.querySelector('.shape.enter-active'); 
+      stageEl.appendChild(img); 
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => { 
+          img.classList.add('enter-active'); 
+          if(old) old.classList.add('exit-active'); 
+        });
+      }); 
+      if(old) old.addEventListener('transitionend', () => old.remove(), {once: true}); 
+    };
+
+    // 3..2..1 countdown with beeps - FIXED: Added beeps for each count
+    const startCountdown = (secondsCount, cb) => {
+      const myToken = ++countdownToken;
+      countdownOverlayEl.innerHTML = ''; 
+      let count = secondsCount;
+      
+      // Play initial beep
+      if (soundEnabled) playBeep();
+      
+      const step = () => {
+        if (myToken !== countdownToken) return;
+        
+        if (count < 0) { 
+          countdownOverlayEl.style.display = 'none'; 
+          if (myToken === countdownToken) cb(); 
+          return; 
+        }
+        
+        // Play beep for each number (except 0 which shows "!")
+        if (count > 0 && soundEnabled) {
+          playBeep();
+        }
+        
+        const nEl = document.createElement('div'); 
+        nEl.className = 'count-number'; 
+        nEl.textContent = count > 0 ? count : '!';
+        countdownOverlayEl.appendChild(nEl);
+        
+        setTimeout(() => nEl.classList.add('active'), 10);
+        nEl.addEventListener('animationend', () => nEl.remove(), {once: true});
+        
+        count--; 
+        setTimeout(() => { 
+          if (myToken === countdownToken) step(); 
+        }, 1000);
+      };
+      
+      countdownOverlayEl.style.display = 'flex'; 
+      step();
+    };
+
+    // Game flow
+    const showFirstShape = () => {
+      const shape = getRandomShape();
+      currentShape = shape;
+      swapTo(shape);
+      
+      // Make sure audio is initialized
+      if (soundEnabled) {
+        ensureAudioContext();
+        // Play start sound
+        if (SFX.start) {
+          try {
+            const startCopy = new Audio(SFX.start.src);
+            startCopy.volume = 0.7;
+            startCopy.play().catch(e => console.log('Start sound failed'));
+          } catch(e) {}
+        }
+      }
+
+      messageEl.style.display = 'flex';
+      messageEl.textContent = 'Энэ дүрсийг сайн тогтоож аваарай!';
+      canAnswer = false;
+      setControlsVisible(false);
+      showAnswerBtns();
+
+      setTimeout(() => startCountdown(3, () => {
+        if (mode === 'game') startTimer();
+        startGameplay();
+      }), COUNTDOWN_DELAY);
+    };
+
+    const startGameplay = () => askQuestion();
+
+    const askQuestion = () => {
+      prevShape = currentShape; 
+      currentShape = getNextShape();
+      swapTo(currentShape);
+      messageEl.textContent = 'Энэ дүрс өмнөхтэй адилхан уу?';
+      canAnswer = true;
+      setControlsVisible(true);
+      showAnswerBtns();
+    };
+
+    const handleAnswer = (userAnswer) => {
+      if (!canAnswer || (mode === 'game' && timeLeft <= 0)) return;
+      canAnswer = false;
+
+      const isSame = currentShape === prevShape;
+      const correct = userAnswer === isSame;
+
+      if (mode === 'game') {
+        if (correct) {
+          points += BASE_POINTS * multiplier;
+          meter++;
+          if (meter >= METER_SIZE) { meter = 0; if (multiplier < MAX_MULT) multiplier++; }
+        } else {
+          if (meter > 0) meter = 0; else if (multiplier > 1) multiplier--;
+        }
+        updateScoreUI(); updateMeterUI(); updateMultiplierUI();
+      }
+
+      showFeedback(correct);
+      if (mode === 'game') {
+        if (correct) {
+          if (SFX.correct) playSound(SFX.correct);
+        } else {
+          if (SFX.wrong) playSound(SFX.wrong);
+        }
+      }
+
+      setTimeout(() => {
+        if (mode === 'game' && timeLeft <= 0) return;
+
+        if (mode === 'tutorial') {
+          practiceCount++;
+          if (practiceCount >= PRACTICE_ROUNDS) { showPracticeComplete(); return; }
+        }
+        prevShape = currentShape; 
+        currentShape = getNextShape();
+        swapTo(currentShape);
+        messageEl.textContent = 'Энэ дүрс өмнөх дүрстэй адилхан уу?';
+        canAnswer = true;
+      }, NEXT_QUESTION_PAUSE);
+    };
+
+    const endGame = () => {
+      canAnswer = false;
+      const bonus = FINAL_BONUS_PER_LEVEL * multiplier;
+      points += bonus; 
+      updateScoreUI();
+      messageEl.textContent = `⏰ Цаг дууслаа! Нэмэлт ${bonus} оноо (x${multiplier}). Нийт оноо: ${fmtPoints(points)}`;
+
+      // Show only "New Game" button
+      setControlsVisible(true);
+      showNewGameBtn();
+
+      const entry = { id: Date.now(), score: points, mult: multiplier, date: new Date().toISOString() };
+      const list = addHighscore(entry);
+      openScores(list, entry.id);
+    };
+
+    const startGame = () => {
+      mode = 'game';
+      gameWrapper.classList.remove('tutorial-mode');
+      wizardEl.style.display = 'none';
+      startScreenEl.style.display = 'none';
+
+      countdownToken++; 
+      countdownOverlayEl.style.display = 'none';
+      stageEl.innerHTML = '';
+
+      resetScoring();
+      resetTimer();
+      messageEl.style.display = 'none';
+
+      setControlsVisible(false);
+      showAnswerBtns();
+      showFirstShape();
+    };
+
+    const startTutorial = () => {
+      mode = 'tutorial';
+      gameWrapper.classList.add('tutorial-mode');
+      wizardEl.style.display = 'none';
+      startScreenEl.style.display = 'none';
+
+      countdownToken++; 
+      countdownOverlayEl.style.display = 'none';
+      stageEl.innerHTML = '';
+
+      resetScoring();
+      stopTimer(); 
+      timeLeft = TIME_LIMIT; 
+      updateTimeDisplay();
+
+      practiceCount = 0;
+      messageEl.style.display = 'none';
+
+      setControlsVisible(false);
+      showAnswerBtns();
+      showFirstShape();
+    };
+
+    // Wizard
+    let wizStep = 0;
+    const renderWizard = () => {
+      wizardEl.style.display = 'flex';
+      if (wizStep === 0) {
+        wizTitle.textContent = 'Тоглоомын заавар';
+        wizBody.innerHTML = `
+          <p>Тавтай морил! Энэ бол тархины сэтгэх хурд болон ой санамжийг шалгах тоглоом юм.</p>
+          <p style="margin-top:8px;">Тоглоомын үндсэн зорилго нь дэлгэцэн дээр гарч ирэх дүрсийг санаж, өмнөх дүрстэй ижил эсэхийг тодорхойлох юм.</p>
+        `;
+        wizPrev.style.display = 'none';
+        wizNext.textContent = 'Дараах';
+      } else if (wizStep === 1) {
+        wizTitle.textContent = 'Хэрхэн тоглох вэ';
+        wizBody.innerHTML = `
+          <ol>
+            <li>Эхлээд дэлгэцэн дээр гарч ирэх дүрсийг санаж авах хэрэгтэй.</li>
+            <li style="margin-top:6px;">Дараа нь шинэ дүрс гарч ирэхэд өмнөхтэй нь ижил эсэхийг “ТИЙМ” эсвэл “ҮГҮЙ” товчоор хариулаарай.</li>
+            <li style="margin-top:6px;">Зөв хариулт бүр <b>1 оноо</b> авчрах болно.</li>
+          </ol>
+        `;
+        wizPrev.style.display = 'inline-block';
+        wizNext.textContent = 'Дараах';
+      } else if (wizStep === 2) {
+        wizTitle.textContent = 'Дасгал хийх';
+        wizBody.innerHTML = `
+          <p>Одоо та дасгал хийнэ. Дараах жишээг үзээд, дараа нь “ТИЙМ” эсвэл “ҮГҮЙ” товчийг дарж хариулаарай.</p>
+          <p style="margin-top:8px;">Дасгалын үед <b>цаг ажиллахгүй</b>, <b>оноо тоологдохгүй</b>.</p>
+        `;
+        wizPrev.style.display = 'inline-block';
+        wizNext.textContent = 'Дасгал эхлүүлэх';
+      }
+    };
+
+    const markOnboardingSeen = () => { localStorage.setItem(ONBOARD_KEY, String(ONBOARDING_VERSION)); };
+
+    const bindDefaultWizardHandlers = () => {
+      wizPrev.onclick = () => { if (wizStep > 0) { wizStep--; renderWizard(); } };
+      wizNext.onclick = () => {
+        if (wizStep < 2) { wizStep++; renderWizard(); }
+        else { if (wizDontShow.checked) markOnboardingSeen(); startTutorial(); }
+      };
+    };
+
+    const showPracticeComplete = () => {
+      wizardEl.style.display = 'flex';
+      wizTitle.textContent = 'Дасгал дууслаа!';
+      wizBody.innerHTML = `
+        <p>Сайн байна. 👏 Одоо жинхэнэ тоглоомыг эхлүүлэхэд бэлэн боллоо.</p>
+        <p style="margin-top:8px;">Тоглоом эхэлмэгц 45 секундийн хугацаа тоологдож, зөв хариулт бүрт оноо нэмэгдэнэ.</p>
+      `;
+      wizPrev.style.display = 'inline-block';
+      wizPrev.textContent = 'Дахин дасгал хийх';
+      wizNext.textContent  = 'Тоглож эхлэх';
+
+      wizPrev.onclick = () => { wizardEl.style.display = 'none'; startTutorial(); bindDefaultWizardHandlers(); };
+      wizNext.onclick = () => { if (wizDontShow.checked) markOnboardingSeen(); wizardEl.style.display = 'none'; startGame(); bindDefaultWizardHandlers(); };
+    };
+
+    // Header actions
+    helpBtn.addEventListener('click', () => {
+      prevMode = mode;
+      stopTimer();
+      mode = 'wizard';
+      wizStep = 0;
+      renderWizard();
+      bindDefaultWizardHandlers();
+    });
+
+    restartBtn.addEventListener('click', () => { if (mode === 'tutorial') startTutorial(); else startGame(); });
+    
+    soundToggle.addEventListener('click', () => { 
+      soundEnabled = !soundEnabled; 
+      soundToggle.textContent = soundEnabled ? '🔊' : '🔇'; 
+      localStorage.setItem('soundEnabled', soundEnabled); 
+      // Initialize audio when enabling sound
+      if (soundEnabled) {
+        ensureAudioContext();
+      }
+    });
+
+    yesBtn.addEventListener('click', () => handleAnswer(true));
+    noBtn .addEventListener('click', () => handleAnswer(false));
+    newGameBtn.addEventListener('click', () => startGame());
+
+    // Wizard close (✕) + ESC
+    wizClose.addEventListener('click', () => {
+      wizardEl.style.display = 'none';
+      mode = prevMode || 'idle';
+      if (mode === 'idle') {
+        startScreenEl.style.display = 'flex';
+      } else if (mode === 'game') {
+        const canResume = (countdownOverlayEl.style.display === 'none' && timeLeft > 0);
+        if (canResume) startTimer();
+      }
+    });
+    
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && wizardEl.style.display === 'flex') wizClose.click();
+    });
+
+    // Visibility
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) { 
+        if (timerId) { 
+          clearInterval(timerId); 
+          timerId = null; 
+        } 
+      } else { 
+        const active = mode === 'game' && countdownOverlayEl.style.display === 'none' && timeLeft > 0; 
+        if (active) startTimer(); 
+      }
+    });
+
+    // -------- Highscores ----------
+    const loadHighscores = () => {
+      try {
+        const arr = JSON.parse(localStorage.getItem(HS_KEY)) || [];
+        return arr.sort((a,b) => b.score - a.score).slice(0, HS_LIMIT);
+      } catch(e) { return []; }
+    };
+    
+    const saveHighscores = (arr) => { localStorage.setItem(HS_KEY, JSON.stringify(arr.slice(0, HS_LIMIT))); };
+    
+    const addHighscore = (entry) => {
+      const list = loadHighscores();
+      list.push(entry);
+      list.sort((a,b) => b.score - a.score);
+      const trimmed = list.slice(0, HS_LIMIT);
+      saveHighscores(trimmed);
+      return trimmed;
+    };
+    
+    const buildScoresTable = (list, highlightId = null) => {
+      let html = '<table><thead><tr><th>#</th><th>Оноо</th><th>Эцсийн x</th><th>Огноо</th></tr></thead><tbody>';
+      for (let i = 0; i < HS_LIMIT; i++) {
+        const r = list[i];
+        if (r) {
+          const d = new Date(r.date);
+          const rowClass = r.id === highlightId ? ' class="highlight"' : '';
+          html += `<tr${rowClass}><td>${i+1}.</td><td>${(r.score).toLocaleString('en-US')}</td><td>x${r.mult}</td><td>${d.toLocaleDateString()} ${d.toLocaleTimeString()}</td></tr>`;
+        } else {
+          html += `<tr><td>${i+1}.</td><td>-</td><td>-</td><td>-</td></tr>`;
+        }
+      }
+      html += '</tbody></table>';
+      scoresTableWrap.innerHTML = html;
+    };
+    
+    const openScores = (list = loadHighscores(), highlightId = null) => { 
+      buildScoresTable(list, highlightId); 
+      scoresModal.style.display = 'flex'; 
+    };
+    
+    const closeScores = () => { scoresModal.style.display = 'none'; };
+
+    scoresBtn.addEventListener('click', () => openScores());
+    scoresClose.addEventListener('click', closeScores);
+    
+    scoresClear.addEventListener('click', () => { 
+      if (confirm('Дээд оноог бүгдийг цэвэрлэх үү?')) { 
+        saveHighscores([]); 
+        buildScoresTable([]); 
+      } 
+    });
+    
+    scoresModal.addEventListener('click', (e) => { if (e.target === scoresModal) closeScores(); });
+
+    // Initialize audio on any user interaction
+    document.addEventListener('click', function initAudioOnFirstClick() {
+      ensureAudioContext();
+      document.removeEventListener('click', initAudioOnFirstClick);
+    }, { once: true });
+
+    // Also initialize on start button
+    startBtn.addEventListener('click', () => { 
+      ensureAudioContext(); 
+      startGame(); 
+    });
+
+    // Initial setup
+    mode = 'idle';
+    startScreenEl.style.display = 'flex';
+    wizardEl.style.display = 'none';
+    
+    updateTimeDisplay();
+    resetScoring();
+  </script>
+</body>
+</html>
